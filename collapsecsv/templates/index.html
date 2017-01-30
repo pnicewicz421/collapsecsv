@@ -1,0 +1,43 @@
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <!-- <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1">-->
+        <title>Collapse CSV Files into One</title>
+    </head>
+    <body>
+        <h1>Collapse CSV Files into One</h1>
+    
+        <table id="fileupload">
+
+
+            <form method="POST" action="upload" enctype="multipart/form-data">
+                {% csrf_token %}
+                {{ form }}
+                <!--#{{ form.filename }}
+                {{ form.email }}-->
+                <tr><td><input type="submit" value="Collapse id="id_upload" /></td></tr>
+               
+            </form>   
+
+ 
+        <!-- {% if documents %}
+            <ul>
+            {% for document in documents %}
+                <li><a href="{{ document.filename.url }}">{{ document.filename.name }}</a></li>
+            {% endfor %}
+            </ul>
+        {% else %}
+            <p>No files uploaded</p>
+        {% endif %}-->
+        
+       
+
+        </tr>
+        
+        </table>
+        
+
+    </body>
+    
+</html>
