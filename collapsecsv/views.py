@@ -121,48 +121,116 @@ def handle_file(request):
     #Subtract 'HIV/AIDS' from DisabilityType (this info was not required)
     DisabilityTypes = np.setdiff1d(DisabilityTypes, np.array([8]))
 
-    disSlice = collapsedfile[['ProjectEntryID', 'PersonalID']]
+    #New idea. We will only have one disability type and receivingservices at entry, at update (including ann. assessment), and at exit
+    #Constacts for Data Collection Stages
+
+    #Sort by latest date first, as this will take the latest update when removing duplicates
+    disabilitiesfile.sort_values(['InformationDate'], ascending=False, inplace=True)
 
     for d in DisabilityTypes:
-    	for c in DataCollectionStages:
-    		if c == 2:
-    			c = [2, 5] 
-    		else:
-    			c = [c]
-    		disSlice1 = disabilitiesfile[(disabilitiesfile['DisabilityType'] == d) & (disabilitiesfile['DataCollectionStage'].isin(c))]
-    		disSlice1.sort_values(['InformationDate'], ascending=False, inplace=True)
-    		disSlice1.drop_duplicates(subset='ProjectEntryID', inplace=True)
+                
+        if d == 5:
+    		columnleft = 'PhysicalDisability'
+    	elif d == 6:
+    		columnleft = 'DevelopmentalDisability'
+    	elif d == 7:
+    		columnleft = 'ChronicHealthCondition'
+    	elif d == 9:
+    		columnleft = 'MentalHealthProblem'
+    	elif d == 10:
+    		columnleft = 'SubstanceAbuse'
 
-    		if d == 5:
-    			columnleft = 'PhysicalDisability'
-    		elif d == 6:
-    			columnleft = 'DevelopmentalDisability'
-    		elif d == 7:
-    			columnleft = 'ChronicHealthCondition'
-    		elif d == 8:
-    			continue
-    		elif d == 9:
-    			columnleft = 'MentalHealthProblem'
-    		elif d == 10:
-    			columnleft = 'SubstanceAbuse'
+        disabilitiesfile[columnleft] = 0
+        disabilitiesfile.ix[(disabilitiesfile['DisabilityType'] == d), columnleft] = 1
+     
+        # Create a ReceivingServices column for entry, update, and exit
+        for c in DataCollectionStages:
+            if c == 2:
+                col = [2, 5] 
+                Column = 'ReceivingServicesFor' + columnleft + 'AtUpdate'
+            elif c == 1:
+                col = [1]
+                Column = 'ReceivingServicesFor' + columnleft + 'AtEntry'
+            elif c == 3:
+                col = [3]
+                Column = 'ReceivingServicesFor' + columnleft + 'AtExit'
 
-    		if c == [1]:
-    			columnright = 'AtEntry'
-    		elif c == [2, 5]:
-    			columnright = 'AtLastUpdate'
-    		elif c == [3]:
-    			columnright = 'AtExit'
+            disabilitiesfile[Column] = 0
 
-    		columnname = columnleft + columnright
-    		columnnameRecTx = columnname + 'ReceivingServices'
+            Value = disabilitiesfile.ix[((disabilitiesfile['DisabilityType'] == d) & (disabilitiesfile['DataCollectionStage'].isin(col))), ['ProjectEntryID', 'ReceivingServices']]
+            Value.drop_duplicates(subset='ProjectEntryID', inplace=True)
+            Value.set_index(['ProjectEntryID'], inplace=True)
+            ValueDict = Value.to_dict('dict').values()[0]
+            disabilitiesfile[Column] = disabilitiesfile['ProjectEntryID'].map(ValueDict)
 
-    		disSlice1[columnname] = 1
-    		disSlice1[columnnameRecTx] = disSlice1['ReceivingServices']
-    		disSlice1 = disSlice1[['ProjectEntryID', columnname, columnnameRecTx]]
-    		disSlice = pd.merge(disSlice, disSlice1, how='left', on='ProjectEntryID', copy=False)
-    		disSlice.replace(np.nan, 0, inplace=True)
+    collapsedfile = pd.merge(collapsedfile, disabilitiesfile, how='left', on='ProjectEntryID', copy=False)
 
-    collapsedfile = pd.merge(collapsedfile, disSlice, how='left', on='ProjectEntryID')
+    #EmploymentEducation --> create Last Grade Completed, School Status, Employment Status, Employment Type, Not Employed Type
+    #                        by Data Collection Stage
+    DataCollectionStages = employmenteducation['DataCollectionStage'].unique()
+    DataCollectionStages = np.setdiff1d(DataCollectionStages, np.array([5]))
+
+    employmenteducationfile.sort_values(['InformationDate'], ascending=False, inplace=True)
+
+    LastGradeCompletedColumn = 'LastGradeCompleted'
+    SchoolStatusColumn = 'SchoolStatus'
+    EmployedColumn = 'Employed'
+    EmploymentTypeColumn = 'EmploymentType'
+    NotEmployedReasonColumn = 'NotEmployedReason'
+
+    for c in DataCollectionStages:
+        if c == 2:
+            col = [2, 5] 
+            Column = 'AtUpdate'
+        elif c == 1:
+            col = [1]
+            Column = 'AtEntry'
+        elif c == 3:
+            col = [3]
+            Column = 'AtExit'
+
+        employmenteducationfile[LastGradeCompletedColumn + Column] = 0
+        employmenteducationfile[SchoolStatusColumn + Column] = 0
+        employmenteducationfile[EmployedColumn + Column] = 0
+        employmenteducationfile[EmploymentTypeColumn + Column] = 0
+        employmenteducationfile[NotEmployedReasonColumn + Column] = 0
+
+        LastGradeValue = employmenteducationfile.ix[(employmenteducationfile['DataCollectionStage'].isin(col)), ['ProjectEntryID', LastGradeCompletedColumn]]
+        LastGradeValue.drop_duplicates(subset='ProjectEntryID', inplace=True)
+        LastGradeValue.set_index(['ProjectEntryID'], inplace=True)
+        LastGradeValueDict = Value.to_dict('dict').values()[0]
+
+        SchoolStatusValue = employmenteducationfile.ix[(employmenteducationfile['DataCollectionStage'].isin(col)), ['ProjectEntryID', SchoolStatusColumn]]
+        SchoolStatusValue.drop_duplicates(subset='ProjectEntryID', inplace=True)
+        SchoolStatusValue.set_index(['ProjectEntryID'], inplace=True)
+        SchoolStatusValueDict = Value.to_dict('dict').values()[0]
+
+        EmployedValue = employmenteducationfile.ix[(employmenteducationfile['DataCollectionStage'].isin(col)), ['ProjectEntryID', EmployedColumn]]
+        EmployedValue.drop_duplicates(subset='ProjectEntryID', inplace=True)
+        EmployedValue.set_index(['ProjectEntryID'], inplace=True)
+        EmployedValueDict = Value.to_dict('dict').values()[0]
+        
+        EmploymentTypeValue = employmenteducationfile.ix[(employmenteducationfile['DataCollectionStage'].isin(col)), ['ProjectEntryID', EmploymentTypeColumn]]
+        EmploymentTypeValue.drop_duplicates(subset='ProjectEntryID', inplace=True)
+        EmploymentTypeValue.set_index(['ProjectEntryID'], inplace=True)
+        EmploymentTypeValueDict = Value.to_dict('dict').values()[0]
+
+        NotEmployedReasonValue = employmenteducationfile.ix[(employmenteducationfile['DataCollectionStage'].isin(col)), ['ProjectEntryID', NotEmployedReasonColumn]]
+        NotEmployedReasonValue.drop_duplicates(subset='ProjectEntryID', inplace=True)
+        NotEmployedReasonValue.set_index(['ProjectEntryID'], inplace=True)
+        NotEmployedReasonValueDict = Value.to_dict('dict').values()[0]
+                   
+        employmenteducationfile[LastGradeCompletedColumn + Column] = employmenteducationfile['ProjectEntryID'].map(LastGradeValueDict)
+        employmenteducationfile[SchoolStatusColumn + Column] = employmenteducationfile['ProjectEntryID'].map(SchoolStatusValueDict)
+        employmenteducationfile[EmployedColumn + Column] = employmenteducationfile['ProjectEntryID'].map(EmployedValueDict)
+        employmenteducationfile[EmploymentTypeColumn + Column] = employmenteducationfile['ProjectEntryID'].map(EmploymentTypeValueDict)
+        employmenteducationfile[NotEmployedReasonColumn + Column] = employmenteducationfile['ProjectEntryID'].map(NotEmployedReasonValueDict)
+
+    collapsedfile = pd.merge(collapsedfile, employmenteducationfile, how='left', on='ProjectEntryID', copy=False)
+    
+
+    #Add project.csv to collapsedfile
+    collapsedfile = pd.merge(collapsedfile, projectfile, how='left', on='ProjectID', copy=False)
 
 
     #Reorder all columns
@@ -184,7 +252,7 @@ def handle_file(request):
 
 
 
-    collapsedfile.to_csv('CollapsedDIS1.csv', index=False, header=True, sep=',')
+    collapsedfile.to_csv('CollapsedFile.csv', index=False, header=True, sep=',')
 
 
     return HttpResponse(collapsedfile)
