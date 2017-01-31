@@ -167,8 +167,8 @@ def handle_file(request):
 
     #EmploymentEducation --> create Last Grade Completed, School Status, Employment Status, Employment Type, Not Employed Type
     #                        by Data Collection Stage
-    DataCollectionStages = employmenteducation['DataCollectionStage'].unique()
-    DataCollectionStages = np.setdiff1d(DataCollectionStages, np.array([5]))
+    DataCollectionStages = employmenteducationfile['DataCollectionStage'].unique()
+    DataCollectionStages = np.setdiff1d(DataCollectionStages, np.array([2, 5]))
 
     employmenteducationfile.sort_values(['InformationDate'], ascending=False, inplace=True)
 
@@ -179,10 +179,7 @@ def handle_file(request):
     NotEmployedReasonColumn = 'NotEmployedReason'
 
     for c in DataCollectionStages:
-        if c == 2:
-            col = [2, 5] 
-            Column = 'AtUpdate'
-        elif c == 1:
+        if c == 1:
             col = [1]
             Column = 'AtEntry'
         elif c == 3:
@@ -228,9 +225,248 @@ def handle_file(request):
 
     collapsedfile = pd.merge(collapsedfile, employmenteducationfile, how='left', on='ProjectEntryID', copy=False)
     
+    #HealthAndDV - same as with EmploymentEducation but for the following columns:
+    # GeneralHealthStatus    DentalHealthStatus  MentalHealthStatus  PregnancyStatus DueDate by DataCollectionStage
+    DataCollectionStages = healthanddvfile['DataCollectionStage'].unique()
+    DataCollectionStages = np.setdiff1d(DataCollectionStages, np.array([5]))
 
-    #Add project.csv to collapsedfile
-    collapsedfile = pd.merge(collapsedfile, projectfile, how='left', on='ProjectID', copy=False)
+    employmenteducationfile.sort_values(['InformationDate'], ascending=False, inplace=True)
+
+    GeneralHealthStatusColumn = 'GeneralHealthStatus'
+    DentalHealthStatusColumn = 'DentalHealthStatus'
+    MentalHealthStatusColumn = 'MentalHealthStatus'
+    PregnancyStatusColumn = 'PregnancyStatus'
+    DueDateColumn = 'DueDate'
+
+    for c in DataCollectionStages:
+        if c == 2:
+            col = [2, 5] 
+            Column = 'AtUpdate'
+        elif c == 1:
+            col = [1]
+            Column = 'AtEntry'
+        elif c == 3:
+            col = [3]
+            Column = 'AtExit'
+
+        healthanddvfile[GeneralHealthStatusColumn + Column] = 0
+        healthanddvfile[DentalHealthStatusColumn + Column] = 0
+        healthanddvfile[MentalHealthStatusColumn + Column] = 0
+        healthanddvfile[PregnancyStatusColumn + Column] = 0
+        healthanddvfile[DueDateColumn + Column] = 0
+
+        GeneralHealthStatusValue = healthanddvfile.ix[(healthanddvfile['DataCollectionStage'].isin(col)), ['ProjectEntryID', GeneralHealthStatusColumn]]
+        GeneralHealthStatusValue.drop_duplicates(subset='ProjectEntryID', inplace=True)
+        GeneralHealthStatusValue.set_index(['ProjectEntryID'], inplace=True)
+        GeneralHealthStatusValueDict = Value.to_dict('dict').values()[0]
+
+        DentalHealthStatusValue = healthanddvfile.ix[(healthanddvfile['DataCollectionStage'].isin(col)), ['ProjectEntryID', DentalHealthStatusColumn]]
+        DentalHealthStatusValue.drop_duplicates(subset='ProjectEntryID', inplace=True)
+        DentalHealthStatusValue.set_index(['ProjectEntryID'], inplace=True)
+        DentalHealthStatusValueDict = Value.to_dict('dict').values()[0]
+
+        MentalHealthStatusValue = healthanddvfile.ix[(healthanddvfile['DataCollectionStage'].isin(col)), ['ProjectEntryID', MentalHealthStatusColumn]]
+        MentalHealthStatusValue.drop_duplicates(subset='ProjectEntryID', inplace=True)
+        MentalHealthStatusValue.set_index(['ProjectEntryID'], inplace=True)
+        MentalHealthStatusValueDict = Value.to_dict('dict').values()[0]
+        
+        PregnancyStatusValue = healthanddvfile.ix[(healthanddvfile['DataCollectionStage'].isin(col)), ['ProjectEntryID', PregnancyStatusColumn]]
+        PregnancyStatusValue.drop_duplicates(subset='ProjectEntryID', inplace=True)
+        PregnancyStatusValue.set_index(['ProjectEntryID'], inplace=True)
+        PregnancyStatusValueDict = Value.to_dict('dict').values()[0]
+
+        NotEmployedReasonValue = employmenteducationfile.ix[(employmenteducationfile['DataCollectionStage'].isin(col)), ['ProjectEntryID', NotEmployedReasonColumn]]
+        NotEmployedReasonValue.drop_duplicates(subset='ProjectEntryID', inplace=True)
+        NotEmployedReasonValue.set_index(['ProjectEntryID'], inplace=True)
+        NotEmployedReasonValueDict = Value.to_dict('dict').values()[0]
+                   
+        healthanddvfile[GeneralHealthStatusColumn + Column] = healthanddvfile['ProjectEntryID'].map(GeneralHealthStatusValueDict)
+        healthanddvfile[DentalHealthStatusColumn + Column] = healthanddvfile['ProjectEntryID'].map(DentalHealthStatusValueDict)
+        healthanddvfile[MentalHealthStatusColumn + Column] = healthanddvfile['ProjectEntryID'].map(MentalHealthStatusValueDict)
+        healthanddvfile[PregnancyStatusColumn + Column] = healthanddvfile['ProjectEntryID'].map(PregnancyStatusValueDict)
+        healthanddvfile[DueDateColumn + Column] = healthanddvfile['ProjectEntryID'].map(DueDateValueDict)
+
+    collapsedfile = pd.merge(collapsedfile, healthanddvfile, how='left', on='ProjectEntryID', copy=False)
+
+    #IncomeBenefits
+    #IncomeFromAnySource    TotalMonthlyIncome  Earned  EarnedAmount   
+    #Unemployment    UnemploymentAmount  SSI SSIAmount   SSDI    SSDIAmount  
+    #VADisabilityService VADisabilityServiceAmount   VADisabilityNonService  VADisabilityNonServiceAmount    
+    #PrivateDisability   PrivateDisabilityAmount WorkersComp WorkersCompAmount   TANF    TANFAmount  GA  GAAmount   
+    # SocSecRetirement    SocSecRetirementAmount  ChildSupport    ChildSupportAmount  Alimony AlimonyAmount 
+    #  OtherIncomeSource   OtherIncomeAmount   OtherIncomeSourceIdentify   BenefitsFromAnySource   SNAP  
+    #  WIC TANFChildCare   TANFTransportation  OtherTANF   RentalAssistanceOngoing RentalAssistanceTemp   
+    # OtherBenefitsSource OtherBenefitsSourceIdentify InsuranceFromAnySource  Medicaid    NoMedicaidReason   
+    # Medicare    NoMedicareReason    SCHIP   NoSCHIPReason   VAMedicalServices   NoVAMedReason   EmployerProvided 
+    #   NoEmployerProvidedReason    COBRA   NoCOBRAReason   PrivatePay  NoPrivatePayReason  StateHealthIns 
+    # NoStateHealthInsReason  IndianHealthServices    NoIndianHealthServicesReason    OtherInsurance 
+    # OtherInsuranceIdentify 
+
+
+    DataCollectionStages = incomebenefitsfile['DataCollectionStage'].unique()
+    DataCollectionStages = np.setdiff1d(DataCollectionStages, np.array([2, 5]))
+
+    incomebenefitsfile.sort_values(['InformationDate'], ascending=False, inplace=True)
+
+    Columns = ['IncomeFromAnySource', 'TotalMonthlyIncome', 'Earned', 'EarnedAmount',   
+               'Unemployment', 'UnemploymentAmount', 'SSI', 'SSIAmount', 'SSDI', 'SSDIAmount',
+               'VADisabilityService', 'VADisabilityServiceAmount', 'VADisabilityNonService', 'VADisabilityNonServiceAmount',
+               'PrivateDisability', 'PrivateDisabilityAmount', 'WorkersComp', 'WorkersCompAmount', 'TANF', 'TANFAmount', 'GA',
+               'GAAmount', 'SocSecRetirement', 'SocSecRetirementAmount', 'ChildSupport', 'ChildSupportAmount',
+               'Alimony', 'AlimonyAmount', 'OtherIncomeSource', 'OtherIncomeAmount', 'OtherIncomeSourceIdentify',
+               'BenefitsFromAnySource', 'SNAP', 'WIC', 'TANFChildCare', 'TANFTransportation', 'OtherTANF',
+               'RentalAssistanceOngoing', 'RentalAssistanceTemp', 'OtherBenefitsSource', 'OtherBenefitsSourceIdentify',
+               'InsuranceFromAnySource', 'Medicaid', 'NoMedicaidReason', 'Medicare', 'NoMedicareReason', 'SCHIP', 'NoSCHIPReason',
+               'VAMedicalServices', 'NoVAMedReason', 'EmployerProvided', 'NoEmployerProvidedReason', 'COBRA', 'NoCOBRAReason',
+               'PrivatePay', 'NoPrivatePayReason', 'StateHealthIns', 'NoStateHealthInsReason', 'IndianHealthServices',
+               'NoIndianHealthServicesReason', 'OtherInsurance', 'OtherInsuranceIdentify']
+
+    for c in DataCollectionStages:
+        if c == 1:
+            col = [1]
+            Column = 'AtEntry'
+        elif c == 3:
+            col = [3]
+            Column = 'AtExit'
+
+        for ColName in Columns:
+            incomebenefitsfile[ColName + Column] = 0
+
+            Value = incomebenefitsfile.ix[(incomebenefitsfile['DataCollectionStage'].isin(col)), ['ProjectEntryID', ColName]]
+            Value.drop_duplicates(subset='ProjectEntryID', inplace=True)
+            Value.set_index(['ProjectEntryID'], inplace=True)
+            ValueDict = Value.to_dict('dict').values()[0]
+       
+            incomebenefitsfile[ColName + Column] = incomebenefitsfile['ProjectEntryID'].map(ValueDict)
+
+    collapsedfile = pd.merge(collapsedfile, incomebenefitsfile, how='left', on='ProjectID', copy=False)
+    #Services
+    #This is more complicated and more like disabilities
+
+    #First, get the records for contact -- they are different from the other ones.
+
+    servicesfile.sort_values(['DateProvided'], ascending=False, inplace=True)
+    Value = servicesfile.ix[(servicesfile['RecordType'] == 12), ['ProjectEntryID', 'DateProvided']]
+    Value.drop_duplicates(subset='ProjectEntryID', inplace=True)
+    Value.set_index(['ProjectEntryID'], inplace=True)
+    ValueDict = Value.to_dict('dict').values()[0]
+    servicesfile['LastContactDate'] = disabilitiesfile['ProjectEntryID'].map(ValueDict)
+
+    Value = servicesfile.ix[(servicesfile['RecordType'] == 12), ['ProjectEntryID', 'TypeProvided']]
+    Value.drop_duplicates(subset='ProjectEntryID', inplace=True)
+    Value.set_index(['ProjectEntryID'], inplace=True)
+    ValueDict = Value.to_dict('dict').values()[0]
+    servicesfile['ContactType'] = disabilitiesfile['ProjectEntryID'].map(ValueDict)
+
+    # Next, get each of the services: 
+    for t in range[1, 26]:          
+        if t == 1:
+            column = 'BasicSupportServices'
+        elif t == 2:
+            column = 'CommunityServiceServiceLearning'
+        elif t == 3:
+            column = 'CounselingTherapy'
+        elif t == 4:
+            column = 'DentalCare'
+        elif t == 5:
+            column = 'Education'
+        elif t == 6:
+            column = 'EmploymentAndTrainingServices'
+        elif t == 7:
+            column = 'CriminalJusticeLegalServices'         
+        elif t == 8:
+            column = 'LifeSkillsTraining'            
+        elif t == 9:
+            column = 'ParentingEducationForParentOfYouth'
+        elif t == 10:
+            column = 'ParentingEducationForYouthWithChildren'
+        elif t == 11:
+            column = 'Peer(Youth)Counseling'
+        elif t == 12:
+            column = 'PostNatalCare'
+        elif t == 13:
+            column = 'PrenatalCare'
+        elif t == 14:
+            column = 'HealthMedicalCare'            
+        elif t == 15:
+            column = 'PsychologicalOrPsychiatricCare'
+        elif t == 16:
+            column = 'RecreationalActivities'
+        elif t == 17:
+            column = 'SubstanceAbuseAssessmentAndOrTreatment'
+        elif t == 18:
+            column = 'SubstanceAbusePrevention'
+        elif t == 19:
+            column = 'SupportGroup'
+        elif t == 20:
+            column = 'PreventativeOvernightInterimRespite'            
+        elif t == 21:
+            column = 'PreventativeFormalPlacementInAnAlternativeSettingOutsideOfBCP'
+        elif t == 22:
+            column = 'PreventativeEntryIntoBCPAfterPreventativeServices'
+        elif t == 23:
+            column = 'StreetOutreachHealthAndHygieneProductsDistributed'
+        elif t == 24:
+            column = 'StreetOutreachFoodAndDrinkItems'
+        elif t == 25:
+            column = 'StreetOutreachServicesInfoBrochures'
+    
+        servicesfile[column] = 0
+        Value = servicesfile.ix[((servicesfile['RecordType'] == 142) & (servicesfile['TypeProvided'] == t)), 'ProjectEntryID']
+        Value[column] = 1
+        Value.drop_duplicates(subset='ProjectEntryID', inplace=True)
+        Value.set_index(['ProjectEntryID'], inplace=True)
+        ValueDict = Value.to_dict('dict').values()[0]
+        servicesfile[column] = servicesfile['ProjectEntryID'].map(ValueDict)
+
+    #Now, do the same thing for referrals
+    for t in range[1, 18]:          
+        if t == 1:
+            column = 'ChildCareNonTANF'
+        elif t == 2:
+            column = 'SNAPFoodStamps'
+        elif t == 3:
+            column = 'EducationMcKinneyVento'
+        elif t == 4:
+            column = 'HUDSection8OrOtherPermanentHousing'            
+        elif t == 5:
+            column = 'IndividualDevelopmentAccount'
+        elif t == 6:
+            column = 'Medicaid'
+        elif t == 7:
+            column = 'MentoringProgramOtherThanRHYAgency'
+        elif t == 8:
+            column = 'NationalService'         
+        elif t == 9:
+            column = 'NonResidentialSubstanceAbuseOrMentalHealth'            
+        elif t == 10:
+            column = 'OtherFederalStateLocalProgram'
+        elif t == 11:
+            column = 'ParentingEducationForYouthWithChildren'
+        elif t == 12:
+            column = 'Peer(Youth)Counseling'
+        elif t == 13:
+            column = 'PostNatalCare'
+        elif t == 14:
+            column = 'PrenatalCare'
+        elif t == 15:
+            column = 'HealthMedicalCare'            
+        elif t == 16:
+            column = 'PsychologicalOrPsychiatricCare'
+        elif t == 17:
+            column = 'RecreationalActivities'
+        
+        servicesfile[column] = 0
+        Value = servicesfile.ix[((servicesfile['RecordType'] == 162) & (servicesfile['TypeProvided'] == t)), 'ProjectEntryID']
+        Value[column] = 1
+        Value.drop_duplicates(subset='ProjectEntryID', inplace=True)
+        Value.set_index(['ProjectEntryID'], inplace=True)
+        ValueDict = Value.to_dict('dict').values()[0]
+        servicesfile[column] = servicesfile['ProjectEntryID'].map(ValueDict)
+
+
+
+    collapsedfile = pd.merge(collapsedfile, disabilitiesfile, how='left', on='ProjectEntryID', copy=False)
 
 
     #Reorder all columns
